@@ -8,7 +8,7 @@ A benchmark suite for emerging scale-out applications.
 from <a href="https://docs.docker.com/engine/installation/linux/ubuntulinux/"> Docker Documentations </a> instal docker according to OS version
 
 ## ShadowSocks
-ShadowSocks is a secure socks5 proxy, designed to protect your Internet traffic. We use it to not get limited by aformentioned sanctions. You need a server which have a installed shadowsocks server. For more information see <a href="https://shadowsocks.org/en/index.html">ShadowSocks Website</a>.
+ShadowSocks is a secure socks5 proxy, designed to protect your Internet traffic. We use it to not get limited by aformentioned sanctions. You need a server which has an installed shadowsocks server. For more information see <a href="https://shadowsocks.org/en/index.html">ShadowSocks Website</a>.
 
 ### Install ShadowSocks
 ```bash
@@ -42,12 +42,12 @@ Add following line in `~/shadowsocks/proxyconf`
 cd ~/shadowsocks
 sslocal -c proxyconf &
 ```
-<strong>Warning:</strong> Remember after restart server, you need to start shadowsocks client again. This is not a servcie.
+<strong>Warning:</strong> Remember after restarting the server, you need to start shadowsocks client again. This is not a servcie.
 
 
 ## Polipo
 
-ShadowSocks make socks5 proxy. In commandline, we need http proxy. Polipo is a small and fast caching web proxy. for more information see <a href="https://www.irif.univ-paris-diderot.fr/~jch/software/polipo/">Polipo Website</a>.
+ShadowSocks makes socks5 proxy. In commandline, we need http proxy. Polipo is a small and fast caching web proxy. for more information see <a href="https://www.irif.univ-paris-diderot.fr/~jch/software/polipo/">Polipo Website</a>.
 
 ### Install Polipo
 ```bash
