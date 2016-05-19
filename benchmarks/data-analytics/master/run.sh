@@ -1,5 +1,4 @@
 #!/bin/bash
-
 #set the number of slaves
 cd $HADOOP_PREFIX/etc/hadoop
 echo "Type the number of slave nodes, followed by [ENTER]:"
@@ -9,6 +8,13 @@ do
 	echo "slave$i.cloudsuite.com" >> slaves
 done;
 
+echo "Please select classification or clustering (1 for classification and 2 for clustering:" 
+echo "1. classification"
+echo "2. clustering "
+
+read mtype
+
+
 #Preparing Hadoop
 hdfs namenode -format
 service ssh start
@@ -16,6 +22,7 @@ $HADOOP_PREFIX/etc/hadoop/hadoop-env.sh
 
 #Set the memory for mahout
 export HADOOP_CLIENT_OPTS="-Xmx20192m"
+export HADOOP_HOME=/opt/new_analytic/apache-mahout-distribution-0.11.0
 rm /tmp/*.pid
 
 # installing libraries if any - (resource urls added comma separated to the ACP system variable)
@@ -24,6 +31,9 @@ cd $HADOOP_PREFIX/share/hadoop/common ; for cp in ${ACP//,/ }; do  echo == $cp; 
 # Start Hadoop
 $HADOOP_PREFIX/sbin/start-dfs.sh
 $HADOOP_PREFIX/sbin/start-yarn.sh
+
+# classification
+if [ $mtype -eq 1 ]; then
 
 # Create a workdir for mahout
 export WORK_DIR=${MAHOUT_HOME}/examples/temp/mahout-work-wiki
@@ -78,3 +88,87 @@ mahout trainnb -i ${WORK_DIR}/training -o ${WORK_DIR}/model -li ${WORK_DIR}/labe
 
 echo "Testing on holdout set: Bayes"
 mahout testnb -i  ${WORK_DIR}/testing -m ${WORK_DIR}/model -l ${WORK_DIR}/labelindex -ow -o ${WORK_DIR}/output -seq
+
+
+#clustring
+else 
+
+SCRIPT_PATH=${0%/*}
+if [ "$0" != "$SCRIPT_PATH" ] && [ "$SCRIPT_PATH" != "" ]; then 
+  cd $SCRIPT_PATH
+fi
+START_PATH=`pwd`
+
+# Set commands for dfs
+source $HADOOP_HOME/examples/bin/set-dfs-commands.sh
+
+if [[ -z "$MAHOUT_WORK_DIR" ]]; then
+  WORK_DIR=/tmp/mahout-work-$nslaves
+else
+  WORK_DIR=$MAHOUT_WORK_DIR
+fi
+  $DFS -mkdir -p $WORK_DIR
+  mkdir -p $WORK_DIR
+  echo "Creating work directory at ${WORK_DIR}"
+
+if [ ! -e ${WORK_DIR}/reuters-out-seqdir ]; then
+  if [ ! -e ${WORK_DIR}/reuters-out ]; then
+    if [ ! -e ${WORK_DIR}/reuters-sgm ]; then
+      if [ ! -f ${WORK_DIR}/reuters21578.tar.gz ]; then
+    if [ -n "$2" ]; then
+        echo "Copying Reuters from local download"
+        cp $2 ${WORK_DIR}/reuters21578.tar.gz
+    else
+              echo "Downloading Reuters-21578"
+              curl http://kdd.ics.uci.edu/databases/reuters21578/reuters21578.tar.gz -o ${WORK_DIR}/reuters21578.tar.gz
+    fi
+      fi
+      #make sure it was actually downloaded
+      if [ ! -f ${WORK_DIR}/reuters21578.tar.gz ]; then
+    echo "Failed to download reuters"
+    exit 1
+      fi
+      mkdir -p ${WORK_DIR}/reuters-sgm
+      echo "Extracting..."
+      tar xzf ${WORK_DIR}/reuters21578.tar.gz -C ${WORK_DIR}/reuters-sgm
+    fi
+    echo "Extracting Reuters"
+    mahout org.apache.lucene.benchmark.utils.ExtractReuters ${WORK_DIR}/reuters-sgm ${WORK_DIR}/reuters-out
+    if [ "$HADOOP_HOME" != "" ] && [ "$MAHOUT_LOCAL" == "" ] ; then
+        echo "Copying Reuters data to Hadoop"
+        set +e
+        $DFSRM ${WORK_DIR}/reuters-sgm
+        $DFSRM ${WORK_DIR}/reuters-out
+        $DFS -mkdir -p ${WORK_DIR}/
+        $DFS -mkdir ${WORK_DIR}/reuters-sgm
+        $DFS -mkdir ${WORK_DIR}/reuters-out
+        $DFS -put ${WORK_DIR}/reuters-sgm ${WORK_DIR}/reuters-sgm
+        $DFS -put ${WORK_DIR}/reuters-out ${WORK_DIR}/reuters-out
+        set -e
+    fi
+  fi
+  echo "Converting to Sequence Files from Directory"
+  mahout seqdirectory -i ${WORK_DIR}/reuters-out -o ${WORK_DIR}/reuters-out-seqdir -c UTF-8 -chunk 64 -xm sequential
+fi
+
+  mahout seq2sparse \
+    -i ${WORK_DIR}/reuters-out-seqdir/ \
+    -o ${WORK_DIR}/reuters-out-seqdir-sparse-kmeans --maxDFPercent 85 --namedVector \
+  && \
+  mahout kmeans \
+    -i ${WORK_DIR}/reuters-out-seqdir-sparse-kmeans/tfidf-vectors/ \
+    -c ${WORK_DIR}/reuters-kmeans-clusters \
+    -o ${WORK_DIR}/reuters-kmeans \
+    -dm org.apache.mahout.common.distance.EuclideanDistanceMeasure \
+    -x 10 -k 20 -ow --clustering \
+  && \
+  mahout clusterdump \
+    -i `$DFS -ls -d ${WORK_DIR}/reuters-kmeans/clusters-*-final | awk '{print $8}'` \
+    -o ${WORK_DIR}/reuters-kmeans/clusterdump \
+    -d ${WORK_DIR}/reuters-out-seqdir-sparse-kmeans/dictionary.file-0 \
+    -dt sequencefile -b 100 -n 20 --evaluate -dm org.apache.mahout.common.distance.EuclideanDistanceMeasure -sp 0 \
+    --pointsDir ${WORK_DIR}/reuters-kmeans/clusteredPoints \
+    && \
+  cat ${WORK_DIR}/reuters-kmeans/clusterdump
+
+  fi
