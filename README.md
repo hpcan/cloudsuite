@@ -117,7 +117,7 @@ Verify that the configuration has been loaded:
 
 ```bash
 $ sudo systemctl show docker --property Environment
-Environment=HTTP_PROXY=http://proxy.example.com:80/
+Environment=HTTP_PROXY=http://127.0.0.1:8123/
 ```
 
 Restart Docker:
