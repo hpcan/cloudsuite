@@ -12,7 +12,7 @@ ShadowSocks is a secure socks5 proxy, designed to protect your Internet traffic.
 
 ### Install ShadowSocks
 ```bash
-sudo apt-get update
+sudo ap4t-get update
 sudo apt-get install libevent-dev python-pip python-dev python-m2crypto
 
 sudo pip install shadowsocks
@@ -93,7 +93,38 @@ now we need to restart docker service:
 ```bash
 sudo service docker restart
 ```
+##Final Note
+If after all above you get Error 403 while pulling docker images, first, create a systemd drop-in directory for the docker service:
 
+```bash
+mkdir /etc/systemd/system/docker.service.d
+```
+
+Now create a file called `/etc/systemd/system/docker.service.d/http-proxy.conf` that adds the `HTTP_PROXY` environment variable:
+
+```bash
+[Service]
+Environment="HTTP_PROXY=http://127.0.0.1:8123/"
+```
+
+Flush changes:
+
+```bash
+sudo systemctl daemon-reload
+```
+
+Verify that the configuration has been loaded:
+
+```bash
+$ sudo systemctl show docker --property Environment
+Environment=HTTP_PROXY=http://proxy.example.com:80/
+```
+
+Restart Docker:
+
+```bash
+sudo systemctl restart docker
+```
 ## Pull CloudSuite images from docker hub
 
 After all these steps, we can pull from docker hub. For running CloudSuite Benchmarks, see <a href="http://cloudsuite.ch/">CloudSuite Website</a>.
